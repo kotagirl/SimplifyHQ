@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SimplifyHQ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    header {
+      background: #0f172a;
+      color: white;
+      padding: 24px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 34px;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      font-size: 18px;
+      color: #cbd5e1;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .actions {
+      margin-bottom: 20px;
+    }
+
+    .store-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 280px;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    #message {
+      margin-bottom: 24px;
+      font-size: 16px;
+      color: #374151;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    .card img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .card-content {
+      padding: 16px;
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    .label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 13px;
+      font-weight: bold;
+      text-transform: capitalize;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SimplifyHQ</h1>
+    <p>Manage your ecommerce operations from one dashboard.</p>
+  </header>
+
+  <div class="container">
+    <div class="store-row">
+      <input
+        id="shopInput"
+        type="text"
+        placeholder="Enter Shopify store (example: your-store.myshopify.com)"
+        value="simplifyhq-test-store.myshopify.com"
+      />
+    </div>
+
+    <div class="actions">
+      <button onclick="connectStore()">Connect Store</button>
+      <button onclick="syncProducts()">Sync Products</button>
+      <button onclick="loadProducts()">Load Products</button>
+    </div>
+
+    <div id="message">Ready</div>
+    <div id="products" class="grid"></div>
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://shopifyauth-vxoun7semq-uc.a.run.app";
+
+    function getShop() {
+      return document.getElementById("shopInput").value.trim();
+    }
+
+    function connectStore() {
+      const shop = getShop();
+      const message = document.getElementById("message");
+
+      if (!shop) {
+        message.textContent = "Please enter a Shopify store URL.";
+        return;
+      }
+
+      window.location.href = `${BACKEND_URL}/install?shop=${encodeURIComponent(shop)}`;
+    }
+
+    async function syncProducts() {
+      const shop = getShop();
+      const message = document.getElementById("message");
+
+      if (!shop) {
+        message.textContent = "Please enter a Shopify store URL.";
+        return;
+      }
+
+      message.textContent = "Syncing products from Shopify...";
+
+      try {
+        const res = await fetch(
+          `${BACKEND_URL}/sync-products?shop=${encodeURIComponent(shop)}`
+        );
+
+        const data = await res.json();
+        message.textContent = `Synced ${data.savedProducts} product(s)!`;
+
+        loadProducts();
+      } catch (error) {
+        console.error(error);
+        message.textContent = "Error syncing products.";
+      }
+    }
+
+    async function loadProducts() {
+      const shop = getShop();
+      const message = document.getElementById("message");
+      const container = document.getElementById("products");
+
+      if (!shop) {
+        message.textContent = "Please enter a Shopify store URL.";
+        return;
+      }
+
+      message.textContent = "Loading products...";
+      container.innerHTML = "";
+
+      try {
+        const res = await fetch(
+          `${BACKEND_URL}/products?shop=${encodeURIComponent(shop)}`
+        );
+
+        const data = await res.json();
+        const products = data.products || [];
+
+        if (!products.length) {
+          message.textContent = "No products found.";
+          return;
+        }
+
+        message.textContent = `${products.length} product(s) loaded.`;
+
+        products.forEach(product => {
+          const imageUrl =
+            product.image?.src ||
+            product.images?.[0]?.src ||
+            "https://via.placeholder.com/600x400?text=No+Image";
+
+          const price =
+            product.variants?.[0]?.price
+              ? `$${product.variants[0].price}`
+              : "No price";
+
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <img src="${imageUrl}" alt="${product.title || "Product"}">
+            <div class="card-content">
+              <h3>${product.title || "Untitled Product"}</h3>
+
+              <div class="label">Price</div>
+              <div class="value">${price}</div>
+
+              <div class="label">Handle</div>
+              <div class="value">${product.handle || "-"}</div>
+
+              <div class="label">Vendor</div>
+              <div class="value">${product.vendor || "-"}</div>
+
+              <div class="label">Product Type</div>
+              <div class="value">${product.product_type || "-"}</div>
+
+              <div class="label">Status</div>
+              <div class="value">
+                <span class="status">${product.status || "unknown"}</span>
+              </div>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error(error);
+        message.textContent = "Error loading products.";
+      }
+    }
+  </script>
+</body>
+</html>
